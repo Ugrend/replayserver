@@ -46,25 +46,28 @@ def get_map_background(map_id):
     tmpdir = Config.get('General', 'tmp_dir')
     download_url = Config.get('AssetServer', 'asset_source')
     filename = os.path.join(tmpdir, "%s.jpg" % map_id)
-    if os.path.isfile(filename):
+    if os.path.isfile(filename) and not os.path.isfile(filename + '.lock'):
         return filename
-    bc = requests.get(download_url + "i/%s" % map_id, stream=True)
-    with open(filename, 'wb') as f:
-        for chunk in bc.iter_content(chunk_size=4096):
-            if chunk:
-                f.write(chunk)
-    return filename
+    if not os.path.isfile(filename + '.lock'):
+        bc = requests.get(download_url + "i/%s" % map_id, stream=True)
+        with open(filename, 'wb') as f:
+            for chunk in bc.iter_content(chunk_size=4096):
+                if chunk:
+                    f.write(chunk)
+        return filename
 
 
 def get_map_audio(map_id):
     tmpdir = Config.get('General', 'tmp_dir')
     download_url = Config.get('AssetServer', 'asset_source')
     filename = os.path.join(tmpdir, "%s.mp3" % map_id)
-    if os.path.isfile(filename):
+    if os.path.isfile(filename) and not os.path.isfile(filename + '.lock'):
         return filename
-    bc = requests.get(download_url + "a/%s" % map_id, stream=True)
-    with open(filename, 'wb') as f:
-        for chunk in bc.iter_content(chunk_size=4096):
-            if chunk:
-                f.write(chunk)
-    return filename
+
+    if not os.path.isfile(filename + '.lock'):
+        bc = requests.get(download_url + "a/%s" % map_id, stream=True)
+        with open(filename, 'wb') as f:
+            for chunk in bc.iter_content(chunk_size=4096):
+                if chunk:
+                    f.write(chunk)
+        return filename

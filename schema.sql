@@ -38,7 +38,9 @@ CREATE TABLE beatmap_to_assets (
   id         SERIAL PRIMARY KEY,
   beatmap_id INT REFERENCES beatmaps (id),
   asset_id   INT REFERENCES assets (id),
-  filename   TEXT
+  filename   TEXT,
+  trusted    BOOLEAN DEFAULT FALSE,
+  UNIQUE (beatmap_id, asset_id)
 );
 
 
