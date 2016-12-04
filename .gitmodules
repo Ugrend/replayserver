@@ -1,0 +1,3 @@
+[submodule "osuReplay/replayparser"]
+	path = osuReplay/replayparser
+	url = https://github.com/Ugrend/osu_replay_parser.git
