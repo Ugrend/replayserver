@@ -27,7 +27,7 @@ class Sql:
             result = [dict(x) for x in self.cursor.fetchall()]
             return result
         except psycopg2.ProgrammingError as e:
-            Logger.WARN(e)
+            Logger.WARN(str(e))
             return True
         except psycopg2.InternalError:
             self.rollback()

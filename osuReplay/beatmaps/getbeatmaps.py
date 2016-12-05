@@ -31,7 +31,9 @@ def get_single_map(map_id):
     if os.path.isfile(filename) and not os.path.isfile(filename + '.lock'):
         return filename
 
+    print(os.path.isfile(filename + '.lock'))
     if not os.path.isfile(filename + '.lock'):
+        print(filename)
         open(filename + '.lock', 'w').close()
         bc = requests.get(download_url + "b/%s" % map_id, stream=True)
         with open(filename, 'wb') as f:
@@ -49,11 +51,13 @@ def get_map_background(map_id):
     if os.path.isfile(filename) and not os.path.isfile(filename + '.lock'):
         return filename
     if not os.path.isfile(filename + '.lock'):
+        open(filename + '.lock', 'w').close()
         bc = requests.get(download_url + "i/%s" % map_id, stream=True)
         with open(filename, 'wb') as f:
             for chunk in bc.iter_content(chunk_size=4096):
                 if chunk:
                     f.write(chunk)
+        os.remove(filename + '.lock')
         return filename
 
 
@@ -65,9 +69,11 @@ def get_map_audio(map_id):
         return filename
 
     if not os.path.isfile(filename + '.lock'):
+        open(filename + '.lock', 'w').close()
         bc = requests.get(download_url + "a/%s" % map_id, stream=True)
         with open(filename, 'wb') as f:
             for chunk in bc.iter_content(chunk_size=4096):
                 if chunk:
                     f.write(chunk)
+        os.remove(filename + '.lock')
         return filename
