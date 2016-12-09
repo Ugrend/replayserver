@@ -66,6 +66,8 @@ class Replays:
                     return self.replayhash_cache[replay_id]
                 return False
 
+        if beatmap_id:
+            return api_error("Sorry not implemented yet")
 
     def POST(self, replay):
         data = replay.file.read()
