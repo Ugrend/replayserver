@@ -13,7 +13,14 @@ import threading
 from psycopg2.extensions import AsIs
 
 
-def get_md5_hash(filename):
+from osuReplay.celeryloader import app
+
+
+def get_md5(data):
+    return hashlib.md5(data.encode('utf-8')).hexdigest()
+
+
+def get_md5_from_file(filename):
     """
     This does not get the hash of the file itself but a hash of a b64 encoded version as this is what the website will use.
     :param filename:
@@ -28,6 +35,11 @@ def get_md5_hash(filename):
         b64data = "data:audio/wav;base64,"
     if filename.lower().endswith("mp3"):
         b64data = "data:audio/mpeg;base64,"
+
+    if filename.lower().endswith('osu'):
+        with open(filename,'r') as f:
+            data = f.read()
+        return get_md5(data)
 
     with open(filename, 'rb') as f:
         b64data += base64.b64encode(f.read()).decode('utf-8')
@@ -46,6 +58,7 @@ def insert_map_into_db(d):
     params = (AsIs(','.join(columns)), tuple([d[c] for c in columns]))
     print(params)
     return sql.execute_query(query, params)[0]
+
 
 
 def insert_assets(assets, bmID):
@@ -105,7 +118,7 @@ def get_assets_for_set(beatmapset_id):
     sql = Sql()
     return sql.execute_query(query, (beatmapset_id,))
 
-
+@app.task
 def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
     required_files = get_filenames(beatmap_file)
     background = None
@@ -140,10 +153,10 @@ def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=
             time.sleep(20)
 
     if background:
-        background_hash = get_md5_hash(background)
+        background_hash = get_md5_from_file(background)
         assets.append({'filename': required_files['background'], 'md5sum': background_hash, 'trusted': True})
     if song:
-        song_hash = get_md5_hash(song)
+        song_hash = get_md5_from_file(song)
         assets.append({'filename': required_files['song'], 'md5sum': song_hash, 'trusted': True})
 
     insert_assets(assets, beatmap_id)
@@ -178,9 +191,62 @@ def download_beatmap(bmHash):
         if file:
             beatmap_file = os.path.join(Config.get('General', 'beatmap_dir'), "%s.osu" % bmHash)
             copyfile(file, beatmap_file)
-            download_assets_async(db_data['id'], map_data['beatmap_id'],beatmap_file,map_data['beatmapset_id'])
+            return download_assets.delay(db_data['id'], map_data['beatmap_id'], os.path.abspath(beatmap_file), map_data['beatmapset_id']).id
 
 
+@app.task
+def insert_map(map, assets=None):
+
+    # quick hacky validator to make sure it is a map
+
+    linesmatched = 0
+    lines = map.split('\n')
+    if len(lines) < 5:
+        raise ValueError('Not a valid beatmap')
+    if "osu" not in lines[0]:
+        raise ValueError('Not a valid beatmap')
+    for line in lines:
+        if linesmatched > 3:
+            break
+        if 'General' in line:
+            linesmatched += 1
+        if 'Editor' in line:
+            linesmatched += 1
+        if 'Difficulty' in line:
+            linesmatched += 1
+        if 'Events' in line:
+            linesmatched += 1
+        if 'TimingPoints' in line:
+            linesmatched += 1
+        if 'HitObjects' in line:
+            linesmatched += 1
+
+    if linesmatched <= 3:
+        raise ValueError('Not a valid beatmap')
+
+
+    bmhash = get_md5(map)
+    sql = Sql()
+    query = "SELECT id FROM beatmaps WHERE bmhash = %s"
+    params = (bmhash,)
+    result = sql.execute_query(query, params)
+    if len(result) == 0:
+
+        # we don't have this map so attempt to download the things needed
+        download_beatmap(bmhash)
+        result = sql.execute_query(query, params)
+    if len(result) == 0:
+        # we still dont have the map so it has not been submitted
+        result = [insert_map_into_db({'bmhash': bmhash})]
+        beatmap_file = os.path.join(Config.get('General', 'beatmap_dir'), "%s.osu" % bmhash)
+        with open(beatmap_file, 'wb') as f:
+            f.write(map)
+    if assets:
+        for asset in assets:
+            # we do not trust these assets as they from user generated content
+            asset['trusted'] = False
+        insert_assets(assets, result[0]['id'])
+    return bmhash
 
 
 
@@ -188,8 +254,8 @@ class BeatmapLoader:
     def __init__(self):
         self.cache = LRUCache(maxsize=200)
 
-    def load_beatmap(self, bmHash, expect_file=False):
-        asset_query = "SELECT ba.filename, a.filehash as md5sum FROM beatmap_to_assets ba " \
+    def load_beatmap(self, bmHash, expect_file=False, task_id=None):
+        asset_query = "SELECT ba.filename, a.filehash as md5sum, ba.trusted FROM beatmap_to_assets ba " \
         "JOIN assets a on a.id = ba.asset_id " \
         "JOIN beatmaps b ON b.id = ba.beatmap_id " \
         "WHERE b.bmhash = %s"
@@ -215,27 +281,28 @@ class BeatmapLoader:
         if os.path.isfile(beatmap_file):
             sql = Sql()
             query = "SELECT id, beatmap_id, beatmapset_id FROM beatmaps WHERE bmhash = %s"
-
             beatmap_info = sql.execute_query(query, params)
-            print(beatmap_info)
+            if len(beatmap_info) == 0:
+                # This shouldnt happen but we have the file, but no db info for it just download it again
+                download_beatmap(bmHash)
+                beatmap_info = sql.execute_query(query, params)
             if len(beatmap_info) > 0:
                 beatmap['beatmap_id'] = beatmap_info[0]['beatmap_id']
                 beatmap['beatmapset_id'] = beatmap_info[0]['beatmapset_id']
+                beatmap['task_id'] = task_id
 
 
             beatmap['assets'] = sql.execute_query(asset_query, params)
-
-            if len(beatmap['assets']) == 0 and not expect_file and len(beatmap_info) > 0:
-                download_assets_async(beatmap_info[0]['id'], beatmap_info[0]['beatmap_id'], beatmap_file, beatmap_info[0]['beatmapset_id'])
-
             with open(beatmap_file, 'rb') as f:
                 beatmap['beatmap'] = f.read().decode('utf-8')
+            if len(beatmap['assets']) == 0 and not expect_file and len(beatmap_info) > 0:
+                beatmap['task_id'] = download_assets.delay(beatmap_info[0]['id'], beatmap_info[0]['beatmap_id'], beatmap_file, beatmap_info[0]['beatmapset_id']).id
+
+
             return beatmap
         elif not expect_file:
             # remove from cache as it will be empty
             self.cache.pop(bmHash)
-            download_beatmap(bmHash)
-            return self.load_beatmap(bmHash, True)
-
-
+            task_id = download_beatmap(bmHash)
+            return self.load_beatmap(bmHash, True, task_id)
 

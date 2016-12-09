@@ -20,8 +20,8 @@ Vagrant.configure("2") do |config|
     v.memory = 2048
   end
 
-  # I had issues with the synced folder not syncing 50% of the time, so im just using auto deploy in pycharm
-  config.vm.synced_folder '.', '/vagrant', disabled: true
+  config.vm.synced_folder ".", "/vagrant", type: "rsync",
+    rsync__exclude: ['.git/', 'osuReplay/songs', 'osuReplay/tmp', 'tmp']
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
