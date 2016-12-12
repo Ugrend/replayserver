@@ -30,6 +30,6 @@ sed -i 's/local   all             all                                     peer/l
 
 systemctl start postgresql-9.6.service
 systemctl enable postgresql-9.6.service
-/usr/local/bin/pip3 install psycopg2 cherrypy requests hashids Celery cachetools
+/usr/local/bin/pip3 install psycopg2 cherrypy requests hashids Celery cachetools bs4
 /usr/bin/psql -U postgres -c 'CREATE DATABASE osu'
 /usr/bin/psql -U postgres -d osu -f /vagrant/schema.sql
