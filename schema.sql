@@ -40,7 +40,7 @@ CREATE TABLE beatmap_to_assets (
   asset_id   INT REFERENCES assets (id),
   filename   TEXT,
   trusted    BOOLEAN DEFAULT FALSE,
-  UNIQUE (beatmap_id, asset_id)
+  UNIQUE (beatmap_id, asset_id, filename)
 );
 
 
