@@ -8,4 +8,5 @@ class Tasks:
     exposed = True
 
     def GET(self, task_id):
-        return api_success(data=app.AsyncResult(task_id).state)
+        return api_success(data={'state': app.AsyncResult(task_id).state,
+                                 'result': app.AsyncResult(task_id).result})

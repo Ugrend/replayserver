@@ -160,6 +160,7 @@ def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=
         assets.append({'filename': required_files['song'], 'md5sum': song_hash, 'trusted': True})
 
     insert_assets(assets, beatmap_id)
+    return assets
 
 
 def get_maps_for_set(beatmap_set_id):
