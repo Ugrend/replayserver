@@ -21,7 +21,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.synced_folder ".", "/vagrant", type: "rsync",
-    rsync__exclude: ['.git/', 'osuReplay/songs', 'osuReplay/tmp', 'tmp']
+    rsync__exclude: ['.git/', 'osuReplay/songs', 'osuReplay/tmp', 'tmp', 'osuReplay/replays', 'replays', 'songs']
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs

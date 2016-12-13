@@ -81,7 +81,7 @@ class Replays:
             sql = Sql()
             query = "INSERT into replays (replayhash,replay64hash, game_type, player_name, hit_300, hit_100, " \
                     "hit_50, hit_gekis, hit_katus, total_score, total_combo,total_misses, mods, time_played, bmhash)" \
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (replayhash) replayhash=EXCLUDED.replayhash RETURNING id"
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(replayhash) DO UPDATE SET replayhash=EXCLUDED.replayhash RETURNING id"
             params = (
                 replayMd5, replay64hash, r.type, r.playerName, r.h300, r.h100, r.h50, r.hGekis, r.hKatus, r.tScore, r.tCombo,
                 r.hMisses, r.mods, r.time_played, r.bmMd5Hash
