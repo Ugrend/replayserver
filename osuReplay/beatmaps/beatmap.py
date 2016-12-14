@@ -43,6 +43,7 @@ def get_md5_from_file(filename):
 
     with open(filename, 'rb') as f:
         b64data += base64.b64encode(f.read()).decode('utf-8')
+    print(base64[0:40])
     return hashlib.md5(b64data.encode('utf-8')).hexdigest()
 
 
@@ -142,13 +143,13 @@ def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=
 
     try_count = 0
     while try_count < 10 and background is None and not have_background:
-        background = getbeatmaps.get_map_background(beatmap_source_id)
+        background = getbeatmaps.get_map_background(beatmap_source_id, required_files['background'].split('.')[-1])
         if not background:
             time.sleep(10)
 
     try_count = 0
     while try_count < 15 and song is None and not have_song:
-        song = getbeatmaps.get_map_audio(beatmap_source_id)
+        song = getbeatmaps.get_map_audio(beatmap_source_id, required_files['song'].split('.')[-1])
         if not song:
             time.sleep(20)
 
