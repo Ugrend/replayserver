@@ -43,7 +43,6 @@ def get_md5_from_file(filename):
 
     with open(filename, 'rb') as f:
         b64data += base64.b64encode(f.read()).decode('utf-8')
-    print(base64[0:40])
     return hashlib.md5(b64data.encode('utf-8')).hexdigest()
 
 
