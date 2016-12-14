@@ -111,7 +111,7 @@ def get_assets_for_set(beatmapset_id):
     :param beatmap_set_id:
     :return:
     """
-    query = "SELECT ba.filename, a.filehash, ba.trusted as md5sum FROM beatmap_to_assets ba " \
+    query = "SELECT ba.filename, a.filehash, ba.trusted FROM beatmap_to_assets ba " \
             "JOIN assets a on a.id = ba.asset_id " \
             "JOIN beatmaps b ON b.id = ba.beatmap_id " \
             "WHERE b.beatmapset_id = %s"
