@@ -75,10 +75,10 @@ def insert_assets(assets, bmID):
         asset_id = sql.execute_query(query, params)[0]['id']
         if trusted:
             query = "INSERT INTO  beatmap_to_assets (beatmap_id, asset_id, trusted, filename) VALUES (%s,%s,TRUE,%s) \
-                        ON CONFLICT ON CONSTRAINT beatmap_to_assets_beatmap_id_asset_id_key DO UPDATE SET trusted=EXCLUDED.trusted;"
+                        ON CONFLICT ON CONSTRAINT beatmap_to_assets_beatmap_id_asset_id_filename_key DO UPDATE SET trusted=EXCLUDED.trusted;"
         else:
             query = "INSERT INTO  beatmap_to_assets (beatmap_id, asset_id, trusted, filename) VALUES (%s,%s,FALSE,%s) \
-                        ON CONFLICT ON CONSTRAINT beatmap_to_assets_beatmap_id_asset_id_key DO NOTHING"
+                        ON CONFLICT ON CONSTRAINT beatmap_to_assets_beatmap_id_asset_id_filename_key DO NOTHING"
 
         params = (bmID, asset_id, asset['filename'])
         sql.execute_query(query, params)
