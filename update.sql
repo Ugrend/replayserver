@@ -34,7 +34,7 @@ CREATE TABLE _dedup(beatmap_id INT, asset_id INT, filename TEXT);
 INSERT INTO _dedup SELECT  beatmap_id, asset_id, filename
 from beatmap_to_assets
 group by beatmap_id, asset_id, filename
-HAVING count(*) > 1);
+HAVING count(*) > 1;
 
 DELETE FROM beatmap_to_assets WHERE id in (select beatmap_to_assets.id from beatmap_to_assets
   JOIN _dedup ON _dedup.beatmap_id = beatmap_to_assets.beatmap_id AND  _dedup.asset_id = beatmap_to_assets.asset_id AND  _dedup.filename = beatmap_to_assets.filename);
