@@ -43,3 +43,5 @@ INSERT into beatmap_to_assets (beatmap_id, asset_id, filename) SELECT * FROM _de
 
 ALTER TABLE beatmap_to_assets ADD COLUMN trusted BOOLEAN DEFAULT FALSE, ADD CONSTRAINT beatmap_to_assets_beatmap_id_asset_id_filename_key UNIQUE(beatmap_id, asset_id, filename);
 DROP TABLE _dedup;
+
+ALTER TABLE beatmaps RENAME COLUMN beatmap_set_id TO beatmapset_id;
