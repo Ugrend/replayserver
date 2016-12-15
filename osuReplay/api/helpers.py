@@ -17,8 +17,7 @@ def json_serial_datetime(obj):
 def json_output(func):
     def json_output_(*args, **kwargs):
         cherrypy.response.headers['Content-Type'] = 'application/json'
-        cherrypy.response.headers["Access-Control-Allow-Origin"] = "*" #TODO: TURN THIS SHIT OFF BEFORE PROD
-        return json.dumps(func(*args, **kwargs), default=json_serial_datetime, indent=5).encode('utf-8')
+        return json.dumps(func(*args, **kwargs), default=json_serial_datetime).encode('utf-8')
 
     return json_output_
 
