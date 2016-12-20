@@ -6,13 +6,11 @@ from osuReplay.api.replays import Replays
 from osuReplay.api.beatmaps import BeatMaps
 from osuReplay.api.assets import Assets
 from osuReplay.api.tasks import Tasks
-from cherrypy._cpnative_server import CPHTTPServer
 
 if __name__ == '__main__':
     if not os.path.isfile("server.conf"):
         cherrypy.log("No server.conf found resorting to defaults")
         copyfile('server-default.conf', 'server.conf')
-    cherrypy.server.httpserver = CPHTTPServer(cherrypy.server)
     cherrypy.config.update("server.conf")
     cherrypy.lib.cptools.proxy()
     cherrypy.tree.mount(Replays(), '/api/replays', 'server.conf')
