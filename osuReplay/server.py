@@ -12,7 +12,6 @@ if __name__ == '__main__':
         cherrypy.log("No server.conf found resorting to defaults")
         copyfile('server-default.conf', 'server.conf')
     cherrypy.config.update("server.conf")
-    cherrypy.lib.cptools.proxy()
     cherrypy.tree.mount(Replays(), '/api/replays', 'server.conf')
     cherrypy.tree.mount(BeatMaps(), '/api/beatmaps', 'server.conf')
     cherrypy.tree.mount(Assets(), '/api/assets', 'server.conf')
