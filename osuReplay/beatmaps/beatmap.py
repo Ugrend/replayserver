@@ -1,6 +1,6 @@
 __author__ = 'Ugrend'
 
-from cachetools import LRUCache
+from cachetools import LRUCache, TTLCache
 from osuReplay.database.postgres import Sql
 import os
 from osuReplay.config import Config
@@ -118,8 +118,9 @@ def get_assets_for_set(beatmapset_id):
     sql = Sql()
     return sql.execute_query(query, (beatmapset_id,))
 
-@app.task
-def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
+@app.task(bind=True)
+def download_assets(self, beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
+    task_id = self.request.id if self else None
     required_files = get_filenames(beatmap_file)
     background = None
     song = None
@@ -142,13 +143,14 @@ def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=
 
     try_count = 0
     while try_count < 10 and background is None and not have_background:
-        background = getbeatmaps.get_map_background(beatmap_source_id, required_files['background'].split('.')[-1])
+        background = getbeatmaps.get_map_background(beatmap_source_id, required_files['background'].split('.')[-1],
+                                                    task_id=task_id)
         if not background:
             time.sleep(10)
 
     try_count = 0
     while try_count < 15 and song is None and not have_song:
-        song = getbeatmaps.get_map_audio(beatmap_source_id, required_files['song'].split('.')[-1])
+        song = getbeatmaps.get_map_audio(beatmap_source_id, required_files['song'].split('.')[-1], task_id=task_id)
         if not song:
             time.sleep(20)
 
@@ -171,7 +173,7 @@ def get_maps_for_set(beatmap_set_id):
 
 
 def download_assets_async(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
-    thread = threading.Thread(target=download_assets, args=(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id))
+    thread = threading.Thread(target=download_assets, args=(None, beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id))
     thread.start()
 
 
@@ -254,8 +256,10 @@ def insert_map(map, assets=None):
 class BeatmapLoader:
     def __init__(self):
         self.cache = LRUCache(maxsize=200)
+        self.task_cache = TTLCache(maxsize=20, ttl=300)
 
     def load_beatmap(self, bmHash, expect_file=False, task_id=None):
+        self.task_cache.expire()
         asset_query = "SELECT ba.filename, a.filehash as md5sum, ba.trusted FROM beatmap_to_assets ba " \
         "JOIN assets a on a.id = ba.asset_id " \
         "JOIN beatmaps b ON b.id = ba.beatmap_id " \
@@ -297,13 +301,16 @@ class BeatmapLoader:
             with open(beatmap_file, 'rb') as f:
                 beatmap['beatmap'] = f.read().decode('utf-8')
             if len(beatmap['assets']) == 0 and not expect_file and len(beatmap_info) > 0:
-                beatmap['task_id'] = download_assets.delay(beatmap_info[0]['id'], beatmap_info[0]['beatmap_id'], beatmap_file, beatmap_info[0]['beatmapset_id']).id
-
-
+                if bmHash in self.task_cache:
+                    beatmap['task_id'] = self.task_cache[bmHash]
+                else:
+                    beatmap['task_id'] = download_assets.delay(beatmap_info[0]['id'], beatmap_info[0]['beatmap_id'], beatmap_file, beatmap_info[0]['beatmapset_id']).id
+                    self.task_cache[bmHash] = beatmap['task_id']
             return beatmap
         elif not expect_file:
             # remove from cache as it will be empty
             self.cache.pop(bmHash)
             task_id = download_beatmap(bmHash)
+            self.task_cache[bmHash] = task_id
             return self.load_beatmap(bmHash, True, task_id)
 

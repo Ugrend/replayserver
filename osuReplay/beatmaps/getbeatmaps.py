@@ -24,7 +24,7 @@ def download_set(set_id):
     return filename
 
 
-def get_single_map(map_id):
+def get_single_map(map_id, task_id=None):
     tmpdir = Config.get('General', 'tmp_dir')
     download_url = Config.get('AssetServer', 'asset_source')
     filename = os.path.join(tmpdir, "%s.osu" % map_id)
@@ -44,7 +44,7 @@ def get_single_map(map_id):
         return filename
 
 
-def get_map_background(map_id, extension=None):
+def get_map_background(map_id, extension=None, task_id=None):
     if not extension:
         extension = 'jpg'
     tmpdir = Config.get('General', 'tmp_dir')
@@ -53,7 +53,9 @@ def get_map_background(map_id, extension=None):
     if os.path.isfile(filename) and not os.path.isfile(filename + '.lock'):
         return filename
     if not os.path.isfile(filename + '.lock'):
-        open(filename + '.lock', 'w').close()
+        with open(filename + '.lock' 'w') as f:
+            if task_id:
+                f.write(task_id)
         bc = requests.get(download_url + "i/%s" % map_id, stream=True)
         with open(filename, 'wb') as f:
             for chunk in bc.iter_content(chunk_size=4096):
@@ -63,7 +65,7 @@ def get_map_background(map_id, extension=None):
         return filename
 
 
-def get_map_audio(map_id, extension=None):
+def get_map_audio(map_id, extension=None, task_id=None):
     if not extension:
         extension = 'mp3'
     tmpdir = Config.get('General', 'tmp_dir')
@@ -73,7 +75,9 @@ def get_map_audio(map_id, extension=None):
         return filename
 
     if not os.path.isfile(filename + '.lock'):
-        open(filename + '.lock', 'w').close()
+        with open(filename + '.lock' 'w') as f:
+            if task_id:
+                f.write(task_id)
         bc = requests.get(download_url + "a/%s" % map_id, stream=True)
         with open(filename, 'wb') as f:
             for chunk in bc.iter_content(chunk_size=4096):
