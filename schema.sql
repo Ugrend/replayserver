@@ -47,16 +47,9 @@ CREATE TABLE beatmap_to_assets (
 CREATE TABLE players (
   id          SERIAL PRIMARY KEY,
   player_name TEXT,
-  osu_user_id INT UNIQUE,
-  last_updated TIMESTAMP DEFAULT  now()
 );
 
-CREATE  TABLE player_alias(
-  id SERIAL PRIMARY KEY,
-  player_id INT REFERENCES  players(id),
-  player_name TEXT,
-  inserted_time TIMESTAMP DEFAULT  now()
-);
+
 
 CREATE TABLE replays (
   id         SERIAL PRIMARY KEY,
@@ -82,12 +75,3 @@ CREATE TABLE replays (
 
 CREATE INDEX bmhash_on_replay_indx ON replays(bmhash);
 
-CREATE OR REPLACE FUNCTION update_last_updated()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.last_updated = now();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_player_last_updated BEFORE UPDATE ON player FOR EACH ROW EXECUTE PROCEDURE  update_last_updated();
