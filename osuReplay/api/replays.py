@@ -10,7 +10,6 @@ from osuReplay.replayparser import replay_parser
 import hashlib
 from _lzma import LZMAError
 import traceback
-import osuReplay.players.player as player
 
 @json_output_all()
 class Replays:
@@ -89,7 +88,6 @@ class Replays:
             )
 
             replay_id = sql.execute_query(query, params)
-            #player.update_player_info.delay(replay_id, r.get_replay())
             hashid = Hashids(salt=self.SALT, min_length=5).encode(replay_id[0]['id'])
             with open(os.path.join(Config.get('General','replay_dir'),'%s.osr' % replayMd5), 'wb') as f:
                 f.write(data)
