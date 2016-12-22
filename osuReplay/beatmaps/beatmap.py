@@ -227,7 +227,6 @@ def insert_map(map, assets=None):
     if linesmatched <= 3:
         raise ValueError('Not a valid beatmap')
 
-
     bmhash = get_md5(map)
     sql = Sql()
     query = "SELECT id FROM beatmaps WHERE bmhash = %s"
@@ -295,7 +294,6 @@ class BeatmapLoader:
                 beatmap['beatmap_id'] = beatmap_info[0]['beatmap_id']
                 beatmap['beatmapset_id'] = beatmap_info[0]['beatmapset_id']
                 beatmap['task_id'] = task_id
-
 
             beatmap['assets'] = sql.execute_query(asset_query, params)
             with open(beatmap_file, 'rb') as f:
