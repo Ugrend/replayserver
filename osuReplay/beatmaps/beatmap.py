@@ -56,7 +56,6 @@ def insert_map_into_db(d):
     query = """INSERT INTO beatmaps (%s) VALUES %s ON CONFLICT(bmhash) DO UPDATE SET bmhash=EXCLUDED.bmhash RETURNING id """
     columns = list(d.keys())
     params = (AsIs(','.join(columns)), tuple([d[c] for c in columns]))
-    print(params)
     return sql.execute_query(query, params)[0]
 
 
