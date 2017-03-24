@@ -1,6 +1,6 @@
 __author__ = 'Ugrend'
 
-from cachetools import LRUCache, TTLCache
+from cachetools import LRUCache
 from osuReplay.database.postgres import Sql
 import os
 from osuReplay.config import Config
@@ -53,9 +53,13 @@ def insert_map_into_db(d):
     :return:
     """
     sql = Sql()
-    query = """INSERT INTO beatmaps (%s) VALUES %s ON CONFLICT(bmhash) DO UPDATE SET bmhash=EXCLUDED.bmhash RETURNING id """
-    columns = list(d.keys())
-    params = (AsIs(','.join(columns)), tuple([d[c] for c in columns]))
+    #query = """INSERT INTO beatmaps (%s) VALUES %s ON CONFLICT(bmhash) DO UPDATE SET bmhash=EXCLUDED.bmhash RETURNING id """
+    #columns = list(d.keys())
+    #params = (AsIs(','.join(columns)), tuple([d[c] for c in columns]))
+    query = """INSERT INTO beatmaps (bmhash, beatmap_id, beatmapset_id) VALUES (%s, %s, %s) ON CONFLICT(bmhash) DO UPDATE SET bmhash=EXCLUDED.bmhash RETURNING id """
+    #columns = list(d.keys())
+    #params = (AsIs(','.join(columns)), tuple([d[c] for c in columns]))
+    params = (d['bmhash'], d['beatmap_id'], d['beatmapset_id'])
     return sql.execute_query(query, params)[0]
 
 
@@ -86,23 +90,23 @@ def insert_assets(assets, bmID):
 def get_filenames(beatmap_file):
     song = None
     background = None
-    with open(beatmap_file, 'r') as f:
+    with open(beatmap_file, 'rb') as f:
         contents = f.readlines()
         in_events = False
         for line in contents:
             if song and background:
                 break
-            if line.startswith('AudioFilename'):
-                song = line.split('AudioFilename:')[1].strip()
+            if line.startswith(b'AudioFilename'):
+                song = line.split(b'AudioFilename:')[1].strip()
 
-            if line.startswith('[Events]'):
+            if line.startswith(b'[Events]'):
                 in_events = True
 
             if in_events:
-                if line.startswith("0"):
-                    background = line.split(",")[2].replace('"',"").replace('\n',"").strip()
+                if line.startswith(b"0"):
+                    background = line.split(b",")[2].replace(b'"',b"").replace(b'\n',b"").strip()
 
-    return {'song': song, 'background': background}
+    return {'song': str(song), 'background': str(background)}
 
 def get_assets_for_set(beatmapset_id):
     """
@@ -117,9 +121,8 @@ def get_assets_for_set(beatmapset_id):
     sql = Sql()
     return sql.execute_query(query, (beatmapset_id,))
 
-@app.task(bind=True)
-def download_assets(self, beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
-    task_id = self.request.id if self else None
+@app.task
+def download_assets(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
     required_files = get_filenames(beatmap_file)
     background = None
     song = None
@@ -142,14 +145,13 @@ def download_assets(self, beatmap_id, beatmap_source_id, beatmap_file, beatmap_s
 
     try_count = 0
     while try_count < 10 and background is None and not have_background:
-        background = getbeatmaps.get_map_background(beatmap_source_id, required_files['background'].split('.')[-1],
-                                                    task_id=task_id)
+        background = getbeatmaps.get_map_background(beatmap_source_id, required_files['background'].split('.')[-1])
         if not background:
             time.sleep(10)
 
     try_count = 0
     while try_count < 15 and song is None and not have_song:
-        song = getbeatmaps.get_map_audio(beatmap_source_id, required_files['song'].split('.')[-1], task_id=task_id)
+        song = getbeatmaps.get_map_audio(beatmap_source_id, required_files['song'].split('.')[-1])
         if not song:
             time.sleep(20)
 
@@ -172,7 +174,7 @@ def get_maps_for_set(beatmap_set_id):
 
 
 def download_assets_async(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id=None):
-    thread = threading.Thread(target=download_assets, args=(None, beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id))
+    thread = threading.Thread(target=download_assets, args=(beatmap_id, beatmap_source_id, beatmap_file, beatmap_set_id))
     thread.start()
 
 
@@ -226,6 +228,7 @@ def insert_map(map, assets=None):
     if linesmatched <= 3:
         raise ValueError('Not a valid beatmap')
 
+
     bmhash = get_md5(map)
     sql = Sql()
     query = "SELECT id FROM beatmaps WHERE bmhash = %s"
@@ -254,10 +257,8 @@ def insert_map(map, assets=None):
 class BeatmapLoader:
     def __init__(self):
         self.cache = LRUCache(maxsize=200)
-        self.task_cache = TTLCache(maxsize=20, ttl=300)
 
     def load_beatmap(self, bmHash, expect_file=False, task_id=None):
-        self.task_cache.expire()
         asset_query = "SELECT ba.filename, a.filehash as md5sum, ba.trusted FROM beatmap_to_assets ba " \
         "JOIN assets a on a.id = ba.asset_id " \
         "JOIN beatmaps b ON b.id = ba.beatmap_id " \
@@ -294,20 +295,18 @@ class BeatmapLoader:
                 beatmap['beatmapset_id'] = beatmap_info[0]['beatmapset_id']
                 beatmap['task_id'] = task_id
 
+
             beatmap['assets'] = sql.execute_query(asset_query, params)
             with open(beatmap_file, 'rb') as f:
                 beatmap['beatmap'] = f.read().decode('utf-8')
             if len(beatmap['assets']) == 0 and not expect_file and len(beatmap_info) > 0:
-                if bmHash in self.task_cache:
-                    beatmap['task_id'] = self.task_cache[bmHash]
-                else:
-                    beatmap['task_id'] = download_assets.delay(beatmap_info[0]['id'], beatmap_info[0]['beatmap_id'], beatmap_file, beatmap_info[0]['beatmapset_id']).id
-                    self.task_cache[bmHash] = beatmap['task_id']
+                beatmap['task_id'] = download_assets.delay(beatmap_info[0]['id'], beatmap_info[0]['beatmap_id'], beatmap_file, beatmap_info[0]['beatmapset_id']).id
+
+
             return beatmap
         elif not expect_file:
             # remove from cache as it will be empty
             self.cache.pop(bmHash)
             task_id = download_beatmap(bmHash)
-            self.task_cache[bmHash] = task_id
             return self.load_beatmap(bmHash, True, task_id)
 
